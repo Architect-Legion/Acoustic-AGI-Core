@@ -1,50 +1,70 @@
 import torch
 import numpy as np
+import random
 
-class SphericalResonantNode:
+class ResonantSphereKernel:
     """
-    A single point in the 3D mapped intelligence.
-    Positioned by Radius (Abstraction Layer), Theta, and Phi.
+    The Core 3D Topology Engine. 
+    Maps signals to a spherical coordinate system where gain is determined by resonance.
     """
-    def __init__(self, radius, theta, phi):
-        self.r = radius  # Layer depth (0.0 = Core, 1.0 = Surface/Raw Data)
-        self.theta = theta
-        self.phi = phi
-        self.resonance = 0.0  # Current 'vibration' state
-        self.damping = 0.1 * (1 - radius)  # Core layers have higher damping/stability
+    def __init__(self, layers=7):
+        self.layers = layers
+        self.energy_grid = {} # The 'subconscious' latent heat grid
+        self.epsilon = 1e-6    # Limiter for the Core singularity
 
-    def get_cartesian(self):
-        """Converts spherical address to XYZ for 3D distance calculations."""
-        x = self.r * np.sin(self.theta) * np.cos(self.phi)
-        y = self.r * np.sin(self.theta) * np.sin(self.phi)
-        z = self.r * np.cos(self.theta)
-        return torch.tensor([x, y, z])
+    def get_cartesian(self, r, theta, phi):
+        """Converts spherical address to XYZ for distance calculations."""
+        x = r * np.sin(theta) * np.cos(phi)
+        y = r * np.sin(theta) * np.sin(phi)
+        z = r * np.cos(theta)
+        return torch.tensor([x, y, z], dtype=torch.float32)
 
-class ResonantGainStage(torch.nn.Module):
-    """
-    The 'Pre-amp'. Instead of static weights, gain is determined by 
-    how well the input signal resonates with the node's geometry.
-    """
-    def __init__(self, num_layers=7):
-        super().__init__()
-        self.num_layers = num_layers
+    def calculate_resonant_gain(self, input_vector, node_pos_spherical):
+        """
+        The Pre-amp: G = (e^-dist) / max(r, eps)
+        """
+        r, theta, phi = node_pos_spherical
+        node_xyz = self.get_cartesian(r, theta, phi)
         
-    def calculate_gain(self, input_vector, node_pos):
-        # Gain is a function of phase alignment and radial depth
-        # Core layers (low r) require more 'energy' to trigger
-        distance = torch.norm(input_vector - node_pos)
-        resonance_factor = torch.exp(-distance) # High resonance at low distance
-        return resonance_factor / (node_pos[0] + 1e-6) # Gain increases with depth/radius
+        # Distance calculation (Phasing/Alignment)
+        distance = torch.norm(input_vector - node_xyz)
+        resonance = torch.exp(-distance)
+        
+        # Gain is 'stiffer' at the Core (lower r)
+        gain = resonance / max(r, self.epsilon)
+        return gain
 
-# --- The 'Bored Skeptic' (Overseer Lite) ---
+    def fractal_dissipation(self, coordinate, energy_magnitude):
+        """
+        Takes a muted loop and scatters it through fractal pathways.
+        This energy becomes 'latent heat' in the energy_grid.
+        """
+        r, theta, phi = coordinate
+        num_sparks = 8
+        energy_per_spark = (energy_magnitude * 0.8) / num_sparks # 20% friction loss
+        
+        sparks = []
+        for _ in range(num_sparks):
+            # Move randomly, favoring the 'outward' direction (increasing r)
+            dr = random.uniform(0.05, 0.15) 
+            dt = random.uniform(-0.1, 0.1)
+            dp = random.uniform(-0.1, 0.1)
+            
+            new_coord = (min(1.0, r + dr), theta + dt, phi + dp)
+            sparks.append((new_coord, energy_per_spark))
+            
+            # Update the latent heat (Dither/Inspiration floor)
+            self.energy_grid[new_coord] = self.energy_grid.get(new_coord, 0) + energy_per_spark
+            
+        return sparks
+
 class OverseerMonitor:
+    """The 'Bored Skeptic' monitor."""
     def __init__(self, threshold=0.95):
         self.threshold = threshold
-        self.history = []
 
-    def check_for_feedback(self, signal_pattern):
-        """Identifies high-Q, non-musical loops."""
-        variance = torch.var(signal_pattern)
+    def check_for_feedback(self, signal_history):
+        variance = torch.var(torch.tensor(signal_history))
         if variance < (1 - self.threshold):
-            return "MUTE: Feedback loop detected. Signal is too static."
-        return "PASS: Signal is resonant."
+            return "MUTE" # Feedback detected
+        return "PASS"
